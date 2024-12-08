@@ -169,46 +169,90 @@ Notes:
   ];
   */
 
-  /**
- * === Summary of Code Behavior ===
- *
- * 1. Environment Variables:
- *    - Loads the API key and organization ID from a `.env` file to securely authenticate with the OpenAI API.
- *
- * 2. Request Logic:
- *    - Processes user queries like "Get user with {ID}" or "Fetch user with {ID}".
- *    - Sends the query to OpenAI's `gpt-3.5-turbo` model to extract the user ID from the natural language query.
- *
- * 3. Mock Database:
- *    - Maintains a mock database (`users` array) of user objects with fields `id`, `name`, and `email`.
- *    - Uses the extracted ID to fetch user details from this database.
- *
- * 4. Fallback Logic:
- *    - If OpenAI cannot extract the user ID (e.g., unclear or unsupported query), a fallback mechanism
- *      attempts to directly extract an alphanumeric pattern resembling an ID from the query text.
- *
- * 5. Error Handling:
- *    - Handles errors from OpenAI (e.g., invalid responses, network errors) and logs relevant error messages.
- *
- * 6. Supported Actions:
- *    - If no valid user ID is found in the query, logs a message showing the supported query formats:
- *      - "Get user with {ID}"
- *      - "Fetch user with {ID}"
- *
- * 7. Data Flow:
- *    - Input: Natural language query from the user.
- *    - Output: Logs either:
- *        - The fetched user object (if the ID matches the database).
- *        - An error message or supported actions (if no valid ID is found).
- *
- * 8. Retries:
- *    - No retries are implemented as this script is not rate-limited like `helloWorld.ts`.
- *
- * 9. Use Case:
- *    - A robust query processor that can handle natural language queries for user lookup,
- *      integrating OpenAI's capabilities with fallback mechanisms for handling unsupported or vague queries.
+ /**
+ * DATA FLOW ROADMAP:
+ * 
+ * Step 1: Environment Setup
+ * - Environment variables are loaded from a `.env` file to configure the OpenAI API key.
+ * - Functions and libraries initialized:
+ *   - `dotenv.config({ path: path.resolve(__dirname, ".env") })` loads `.env` file.
+ *   - `new OpenAI()` initializes the OpenAI client with the API key and organization ID.
+ * 
+ * Step 2: Mock Database
+ * - A mock database (`users`) stores user objects with `id`, `name`, and `email`.
+ * - This acts as the source of data for user-related queries.
+ * 
+ * Step 3: Fetch User by ID
+ * - Function: `getUser(id)`
+ *   - INPUT: A string `id` (alphanumeric).
+ *   - OUTPUT: 
+ *     - If a user exists with the given ID, it returns the user object.
+ *     - If not, it returns an error object: `{ error: "User not found" }`.
+ *   - Behavior: Searches the `users` array using the `Array.find()` method.
+ * 
+ * Step 4: Query Processing
+ * - Function: `processQueryWithOpenAI(query)`
+ *   - INPUT: A user query string (e.g., "Find user with 567UVWX").
+ *   - OUTPUT:
+ *     - Extracted user ID and user details from the database.
+ *     - If no valid ID is found, it logs supported actions.
+ *   - Steps:
+ *     1. **Send Query to OpenAI**:
+ *        - Calls OpenAI GPT-3.5 via `openai.chat.completions.create()`.
+ *        - Prompts the model to extract an alphanumeric user ID from the query.
+ *     2. **Handle OpenAI Response**:
+ *        - If OpenAI returns "No user ID is present in the query," fallback parsing is activated.
+ *        - If OpenAI provides an ID:
+ *          - Removes unnecessary prefixes and cleans the response.
+ *          - Extracts the ID using a regular expression.
+ *     3. **Fallback Parsing** (if OpenAI fails):
+ *        - Scans the query directly using a regex pattern to extract an alphanumeric ID.
+ *        - Marks the ID as being sourced from the fallback method.
+ *     4. **Fetch User**:
+ *        - Calls `getUser(id)` with the extracted ID.
+ *        - Logs the user object or an error message if no match is found.
+ *     5. **Log Supported Actions**:
+ *        - If no valid ID is found in the query or response, logs the supported actions.
+ *        - Actions are predefined in `validActions`.
+ * 
+ * Step 5: Supported Actions
+ * - Logs supported actions if no valid ID is found in the query.
+ * - Actions include templates like:
+ *   - "Get user with {id}"
+ *   - "Fetch user with {id}"
+ * 
+ * Step 6: Main Execution
+ * - Function: `runDemo()`
+ *   - Loops through an array of test queries.
+ *   - Calls `processQueryWithOpenAI(query)` for each query to simulate user input and response handling.
+ * - Test Queries:
+ *   - A variety of valid and invalid queries (e.g., "Find user with 567UVWX", "Show user profile").
+ *   - Demonstrates handling of valid IDs, invalid IDs, and fallback scenarios.
+ * 
+ * FUNCTIONS INVOLVED:
+ * 1. **`getUser(id)`**:
+ *    - Fetches a user from the mock database by ID.
+ * 2. **`processQueryWithOpenAI(query)`**:
+ *    - Main function to process queries using OpenAI and fallback mechanisms.
+ *    - Handles ID extraction and database interaction.
+ * 3. **`openai.chat.completions.create()`**:
+ *    - Sends the query to OpenAI GPT-3.5 for interpretation.
+ * 4. **Fallback Parsing (regex)**:
+ *    - Directly extracts alphanumeric ID-like patterns from the query when OpenAI fails.
+ * 5. **Supported Actions Logging**:
+ *    - Logs predefined templates of supported actions if no valid ID is found.
+ * 6. **`runDemo()`**:
+ *    - Simulates the system's behavior using test queries.
+ * 
+ * FLOW TERMINATION POINTS:
+ * - If no valid user ID is found (OpenAI fails and fallback parsing fails).
+ * - After fetching and logging user details or displaying supported actions.
+ * 
+ * NOTES:
+ * - Fallback ensures system robustness when OpenAI fails.
+ * - Error scenarios and supported actions are clearly communicated to the user.
  */
-/*
+
 /**
  * === Data Flow for processQueryWithOpenAI(query: string) ===
  *
