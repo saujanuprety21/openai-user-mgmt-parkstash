@@ -47,10 +47,9 @@ const unsupportedActions = ["create", "update", "modify", "add", "edit", "change
  * OUTPUT: Logs a list of supported actions.
  */
 function displaySupportedActions() {
-  console.log("No valid action AND/OR identifier found.");
   console.log("Supported actions are:");
-  console.log("1. Get user info with id OR email");
-  console.log("2. Delete user by id OR email");
+  console.log("1. Get user info with a valid id OR email");
+  console.log("2. Delete user by valid id OR email");
 }
 
 /**
@@ -163,27 +162,30 @@ async function processQueryWithOpenAI(query: string) {
     const aiResponse = response.choices[0]?.message?.content?.trim() || "";
     console.log("OpenAI Response:", aiResponse);
 
+    // Handle case where OpenAI explicitly says no action or identifier is found
     if (aiResponse === "No valid action or identifier found.") {
-      console.log("OpenAI failed. No valid action or identifier found.");
-      displaySupportedActions();
-      return;
-    }
+         console.log("OpenAI couldn't determine a valid action or identifier from the query.");
+          displaySupportedActions();
+           return;
+        }
 
-    // Extract action and identifier from OpenAI response
+// Parse action and identifier from OpenAI response
     const [actionKeyword, ...identifierParts] = aiResponse.replace(/ID /gi, "").split(" ");
     const action = normalizeAction(actionKeyword);
     const identifierString = identifierParts.join(" ").trim();
     const identifier = extractIDOrEmailFromQuery(identifierString);
 
-    // Fallback for invalid identifiers
-    if (!identifier.id && !identifier.email) {
-      console.log("OpenAI failed. Fallback activated. Parsing query...");
-      const fallbackIdentifier = extractIDOrEmailFromQuery(query);
+// Validate the identifier
+      if (!identifier.id && !identifier.email) {
+             console.log("Invalid identifier format. Falling back to direct parsing...");
+             const fallbackIdentifier = extractIDOrEmailFromQuery(query);
       if (!fallbackIdentifier.id && !fallbackIdentifier.email) {
-        displaySupportedActions();
-        return;
-      }
-    }
+              console.log("No valid identifier found after fallback parsing.");
+              displaySupportedActions();
+              return;
+           }
+        }
+
 
     // Execute the identified action
     if (action === "get" || action === "fetch") {
@@ -211,8 +213,8 @@ async function runDemo() {
   console.log("\n=== Running User Query Demo with OpenAI ===");
 
   const queries = [
-    "Retrieve details for user with ID 567UVWX",
-    "Can you fetch user using email alice@example.com?",
+    "Retrieve details for user with ID 567PVWX",
+    "Can you fetch user using email chalice@example.com?",
     "Please delete the user associated with ID AB789CD",
     "I need information on the user identified as 567UVWX",
     "Add a new user with email newuser@example.com",
@@ -229,24 +231,6 @@ async function runDemo() {
     "Remove Charlie’s user account with ID 567UVWX",
     "Delete user ID 567UVWX, and add a new account",
     "Get and delete user details for AB789CD",
-    "GET user WITH 567UVWX",
-    "fetch user by EMAIL alice@example.com",
-    "Delete user ID AB789CD",
-    "Update user with ID 567UVWX",
-    "Create user with email newuser@example.com",
-    "Modify user details for 123XYZ",
-    "User ID is 567UVWX",
-    "Fetch details",
-    "Delete account",
-    "Show user information",
-    "abcdefg",
-    "email@example..com",
-    "ID 123@AB!#",
-    "Get user with ID 9",
-    "Fetch user by email charlie@example.com",
-    "Remove user 567UVWX",
-    "Delete user ID 567UVWX and create a new user",
-    "Get and delete user AB789CD",
   ];
 
   for (const query of queries) {
