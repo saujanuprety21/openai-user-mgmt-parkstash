@@ -23,9 +23,23 @@ const idRegex = /^[A-Za-z0-9]+$/; // Matches only alphanumeric IDs
 const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/; // Matches valid email addresses
 
 // Supported and unsupported actions
-const allActionKeywords = ["get", "fetch", "delete", "remove", "create", "update", "modify"];
-const unsupportedActions = ["create", "update", "modify"];
-const supportedActions = ["get", "fetch", "delete", "remove"];
+const allActionKeywords = [
+  "get",
+  "fetch",
+  "add",
+  "show",
+  "delete",
+  "search",
+  "retrieve",
+  "remove",
+  "create",
+  "update",
+  "modify",
+  "edit",
+  "change",
+];
+const unsupportedActions = ["create", "update", "modify", "add", "edit", "change"];
+const supportedActions = ["get", "fetch", "retrieve", "search", "show", "delete", "remove"];
 
 // Function to extract identifiers from query
 function extractIDOrEmailFromQuery(query: string): { id?: string; email?: string } {
@@ -35,6 +49,12 @@ function extractIDOrEmailFromQuery(query: string): { id?: string; email?: string
     id: idMatch ? idMatch[0] : undefined,
     email: emailMatch ? emailMatch[0] : undefined,
   };
+}
+
+// Function to sanitize identifiers
+function sanitizeIdentifier(identifier: string): string {
+  const sanitized = identifier.replace(/\bID\b/gi, "").replace(/[^\w@.]/g, "").trim();
+  return sanitized;
 }
 
 // Function to fetch a user by identifier
@@ -121,7 +141,7 @@ async function processQueryWithOpenAI(query: string) {
     // Parse action and identifier
     const [actionKeyword, ...identifierParts] = aiResponse.split(" ");
     const action = actionKeyword.toLowerCase();
-    const identifierString = identifierParts.join(" ").trim();
+    const identifierString = sanitizeIdentifier(identifierParts.join(" ").trim());
     const identifier = extractIDOrEmailFromQuery(identifierString);
 
     // Fallback for invalid identifiers
@@ -162,6 +182,42 @@ async function runDemo() {
   console.log("\n=== Running User Query Demo with OpenAI ===");
 
   const queries = [
+    "Retrieve details for user with ID 567UVWX",
+    "Can you fetch user using email alice@example.com?",
+    "Please delete the user associated with ID AB789CD",
+    "I need information on the user identified as 567UVWX",
+    "Add a new user with email newuser@example.com",
+    "Update the user record for ID 123XYZ",
+    "Look up user details for ID 567UVWX",
+    "Get information on all users",
+    "Delete the account associated with user ID AB789CD",
+    "Remove the user with ID 567UVWX from the system",
+    "abcdefg123",
+    "Fetch the details for the email email@example.com",
+    "Can you tell me who is linked with ID 123@AB!#",
+    "Find information for user ID 9",
+    "Search for user profile associated with charlie@example.com",
+    "Remove Charlie’s user account with ID 567UVWX",
+    "Delete user ID 567UVWX, and add a new account",
+    "Get and delete user details for AB789CD",
+  ];
+
+  for (const query of queries) {
+    await processQueryWithOpenAI(query);
+    console.log("\n-----");
+  }
+}
+
+// Execute the demo
+runDemo();
+
+
+/* TEST DATA FOR MOCK DB 
+
+
+ALL TEST PASSED FOR BELOW:
+
+  const queries = [
     "GET user WITH 567UVWX",
     "fetch user by EMAIL alice@example.com",
     "Delete user ID AB789CD",
@@ -182,11 +238,4 @@ async function runDemo() {
     "Get and delete user AB789CD",
   ];
 
-  for (const query of queries) {
-    await processQueryWithOpenAI(query);
-    console.log("\n-----");
-  }
-}
-
-// Execute the demo
-runDemo();
+*/
