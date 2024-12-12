@@ -1,6 +1,3 @@
-
-
-
 import express from 'express';
 import path from 'path';
 import * as dotenv from "dotenv";
@@ -57,11 +54,18 @@ const unsupportedActions = ["create", "update", "modify", "add", "edit", "change
  * INPUT: None.
  * OUTPUT: Logs a list of supported actions.
  */
+
+//Need to implement this part in the front-end
 function displaySupportedActions() {
-  console.log("Supported actions are:");
-  console.log("1. Get user info with a valid id OR email");
-  console.log("2. Delete user by valid id OR email");
+  return {
+    message: "Supported actions are:",
+    supportedActions: [
+      "Get user info with a valid id OR email",
+      "Delete user by valid id OR email",
+    ],
+  };
 }
+
 
 /**
  * Extracts an ID or email from the given query string using regex patterns.
@@ -113,13 +117,22 @@ function deleteUser(identifier: { id?: string; email?: string }) {
   const userIndex = users.findIndex(
     (u) => u.id === identifier.id || u.email === identifier.email
   );
+
   if (userIndex >= 0) {
     // Remove the user from the database
     const deletedUser = users.splice(userIndex, 1)[0];
-    return { success: true, user: deletedUser };
+    return {
+      success: true,
+      message: "User deleted successfully",
+      user: deletedUser,
+    };
   }
-  return { error: "User not found" }; // Return error if no matching user is found
+
+  // Return proper error if the user does not exist
+  return { success: false, error: "User not found" };
 }
+
+
 
 /**
  * Detects issues in a query, such as multiple or unsupported actions.
@@ -146,13 +159,23 @@ async function processQueryWithOpenAI(query: string) {
     const { multipleActions, unsupportedAction } = detectIssuesInQuery(query);
 
     if (multipleActions) {
-      console.log("Multiple actions detected. Ignoring query.");
-      return { success: false, error: "Multiple actions detected. Ignoring query." };
+      const errorMessage = "Multiple actions detected. Ignoring query.";
+      console.log(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        ...displaySupportedActions(),
+      };
     }
 
     if (unsupportedAction) {
-      console.log("Unsupported action detected in query.");
-      return { success: false, error: "Unsupported action detected in query." };
+      const errorMessage = "Unsupported action detected in query.";
+      console.log(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        ...displaySupportedActions(),
+      };
     }
 
     // Send query to OpenAI for interpretation
@@ -171,24 +194,26 @@ async function processQueryWithOpenAI(query: string) {
     const aiResponse = response.choices[0]?.message?.content?.trim() || "";
     console.log("OpenAI Response:", aiResponse);
 
-    // Handle case where OpenAI explicitly says no action or identifier is found
     if (aiResponse === "No valid action or identifier found.") {
       console.log("No valid action or identifier found.");
       return { success: false, error: "No valid action or identifier found in the query." };
     }
 
-    // Parse action and identifier from OpenAI response
     const [actionKeyword, ...identifierParts] = aiResponse.replace(/ID /gi, "").split(" ");
     const action = normalizeAction(actionKeyword);
     const identifierString = identifierParts.join(" ").trim();
     const identifier = extractIDOrEmailFromQuery(identifierString);
 
-    // Validate the identifier
     if (!identifier.id && !identifier.email) {
-      return { success: false, error: "No valid identifier found after parsing." };
+      const errorMessage = "No valid identifier found after parsing.";
+      console.log(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        ...displaySupportedActions(),
+      };
     }
 
-    // Execute the identified action
     if (action === "get" || action === "fetch") {
       console.log(`Fetching user with identifier: ${JSON.stringify(identifier)}`);
       const user = getUserByIdentifier(identifier);
@@ -200,9 +225,9 @@ async function processQueryWithOpenAI(query: string) {
       console.log(`Deleting user with identifier: ${JSON.stringify(identifier)}`);
       const result = deleteUser(identifier);
 
-      return result.user
-        ? { success: true, data: { message: "User deleted", user: result.user } }
-        : { success: false, error: "User not found." };
+      return result.success
+        ? { success: true, message: result.message }
+        : { success: false, error: result.error };
     }
 
     return { success: false, error: "Unsupported action." };
@@ -215,28 +240,59 @@ async function processQueryWithOpenAI(query: string) {
 
 // API route to process the query
 app.post('/api/chat', async (req, res) => {
+  /**
+   * This route handles POST requests to the `/api/chat` endpoint.
+   * It processes a user's query, validates it, and communicates with the backend logic to generate a response.
+   * 
+   * INPUT: JSON object with a "query" property in the request body.
+   * OUTPUT: JSON response with either success data or an error message.
+   */
+
+  // Extract the query from the request body
   const { query } = req.body;
 
+  // Check if the query is missing or empty
   if (!query) {
+    // Respond with a 400 Bad Request status and an error message
     return res.status(400).json({ success: false, error: "Query is required." });
   }
 
+  // Call the main function to process the query (communicates with OpenAI)
   const result = await processQueryWithOpenAI(query);
 
+  // If the processing was successful, return the result as JSON
   if (result.success) {
-    return res.json(result);
+    return res.json(result); // Success response
   } else {
+    // If there was an error, return a 400 Bad Request status with the error message
     return res.status(400).json(result);
   }
 });
 
 // Redirect all unmatched routes to the frontend
 app.get('/*', (req, res) => {
+  /**
+   * This route handles GET requests for any route that does not match an API endpoint.
+   * It serves the `index.html` file, effectively redirecting all unmatched requests to the frontend.
+   * 
+   * INPUT: Any unmatched GET request.
+   * OUTPUT: Sends the `index.html` file as the response.
+   */
+
+  // Serve the `index.html` file from the frontend directory
   res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
 // Start the server
 app.listen(3000, '0.0.0.0', () => {
+  /**
+   * This function starts the Express server on port 3000.
+   * It listens for incoming connections on all network interfaces (IP: 0.0.0.0).
+   * 
+   * OUTPUT: Logs a message to the console indicating the server is running.
+   */
+
+  // Log a message to confirm the server is running
   console.log('Server running on http://127.0.0.1:3000');
 });
 
